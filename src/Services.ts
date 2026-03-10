@@ -3,7 +3,7 @@
  *  API Wrapper for Archiyou services
  *  
  *  - conversion between different data formats
- *  - TODO: more
+ *  - basic energy calculations
  */
 
 /** API wrapper for Archiyou services */
@@ -104,9 +104,7 @@ export class Services
             return r;
         } 
         catch (error: any) 
-        {
-            const processingTime = Date.now() - startTime;
-            
+        {   
             return {
                 success: false,
                 error: error.message,
@@ -119,9 +117,6 @@ export class Services
         }
     }
 
-    isNode(): boolean {
-        return (typeof process !== 'undefined') && (process.release?.name === 'node');
-    }
 
     /** Upload binary data for conversion - works in both Node.js and browser */
     private async _uploadAndConvert(data: ArrayBuffer, fromExt: string, toExt: string): Promise<ArrayBuffer> 
@@ -229,7 +224,25 @@ export class Services
     }
 
 
+    //// ENERGY ////
+
+    async energy(req: EnergyRequest): Promise<EnergyResult>
+    {
+        try {
+            const response = await this._request<EnergyResult>('/energy/calculate', 'POST', req);
+            return response;
+        } catch (error) {
+            console.error('❌ Services::energy():', error);
+            throw error;
+        }
+    }
+
+
     //// BASE ////
+
+    isNode(): boolean {
+        return (typeof process !== 'undefined') && (process.release?.name === 'node');
+    }
 
     /** Make HTTP request with error handling */
     private async _request<T>(
@@ -328,4 +341,113 @@ export interface ServiceHealthResponse {
     message: string;
 }
 
+//// ENERGY TYPES ////
 
+interface EnergyRequest 
+{
+    location: { lng: number, lat: number };
+    building_volume_m3: number;
+    building_floor_area_m2: number;
+    planes: Array<EnergyPlaneInput>;
+}
+
+/** Simplified EnergyPlaneInput
+ *  See services API for details
+ */
+interface EnergyPlaneInput 
+{
+    id: string;
+    area_m2: number;
+    azimuth_deg: number;
+    tilt_deg: number;
+    r_value?: number;    
+}
+
+/** Solar and thermal results for a single building plane */
+export interface EnergyPlaneResult {
+  /** Plane identifier (matches EnergyPlaneInput.id) */
+  id: string;
+
+  /** Total POA irradiance on the coldest day (kWh/m²) */
+  day_coldest_irradiance_kwh_m2: number;
+  /** Total POA irradiance on the warmest day (kWh/m²) */
+  day_warmest_irradiance_kwh_m2: number;
+  /** Average daily POA irradiance over the year (kWh/m²) */
+  day_avg_irradiance_kwh_m2: number;
+
+  /** Conduction heat loss per m² of plane area on the coldest day (kWh/m²) */
+  day_coldest_heat_loss_kwh_m2: number;
+  /** Conduction heat loss per m² of plane area on the warmest day (kWh/m²) */
+  day_warmest_heat_loss_kwh_m2: number;
+  /** Average daily conduction heat loss per m² of plane area over the year (kWh/m²) */
+  day_avg_heat_loss_kwh_m2: number;
+
+  // Monthly metrics (daily average for that calendar month; coldest/warmest by monthly POA irradiance per plane)
+  /** Daily-average POA irradiance during the month with lowest irradiance for this plane (kWh/m²/day) */
+  month_coldest_irradiance_kwh_m2: number;
+  /** Daily-average POA irradiance during the month with highest irradiance for this plane (kWh/m²/day) */
+  month_warmest_irradiance_kwh_m2: number;
+  /** Daily-average conduction heat loss per m² during the month with lowest irradiance for this plane (kWh/m²/day) */
+  month_coldest_heat_loss_kwh_m2: number;
+  /** Daily-average conduction heat loss per m² during the month with highest irradiance for this plane (kWh/m²/day) */
+  month_warmest_heat_loss_kwh_m2: number;
+
+  // Window-to-wall ratio optimisation
+  /** Maximum recommended WWR (0.05–1.0 in 5% steps). Highest ratio where coldest month net energy > 0 and warmest month overheating ≤ limit. null if no valid ratio found. */
+  wwr_max: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the coldest month at wwr_max, per m² of plane area (kWh/m²/day) */
+  wwr_max_coldest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the warmest month at wwr_max, per m² of plane area (kWh/m²/day) */
+  wwr_max_warmest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the coldest month at wwr_max: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_max_coldest_net_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the warmest month at wwr_max: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_max_warmest_net_kwh_m2: number | null;
+
+  /** Minimum WWR that still achieves net passive benefit in the coldest month (0.05–1.0 in 5% steps). null if no valid ratio found. */
+  wwr_min: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the coldest month at wwr_min, per m² of plane area (kWh/m²/day) */
+  wwr_min_coldest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the warmest month at wwr_min, per m² of plane area (kWh/m²/day) */
+  wwr_min_warmest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the coldest month at wwr_min: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_min_coldest_net_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the warmest month at wwr_min: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_min_warmest_net_kwh_m2: number | null;
+
+  /** Average of wwr_min and wwr_max. null if either is null. */
+  wwr_avg: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the coldest month at wwr_avg, per m² of plane area (kWh/m²/day) */
+  wwr_avg_coldest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average total solar heat gain (windows + opaque wall) in the warmest month at wwr_avg, per m² of plane area (kWh/m²/day) */
+  wwr_avg_warmest_solar_heat_gain_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the coldest month at wwr_avg: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_avg_coldest_net_kwh_m2: number | null;
+  /** Daily-average net energy per m² in the warmest month at wwr_avg: (solar gain − heat loss) / plane area (kWh/m²/day) */
+  wwr_avg_warmest_net_kwh_m2: number | null;
+}
+
+export interface EnergyDaySummary {
+  date: string;
+  avg_temp_c: number;
+  min_temp_c: number;
+  max_temp_c: number;
+  total_ghi_kwh_m2: number;
+}
+
+export interface EnergyResult {
+  epw_station: string;
+  warmest_day: EnergyDaySummary;
+  coldest_day: EnergyDaySummary;
+  annual_avg_temp_c: number;
+  planes: EnergyPlaneResult[];
+  building_volume_m3: number | null;
+  building_heating_demand_kwh_day: number | null;
+  building_passive_gain_coldest_kwh_day: number | null;
+  building_net_heating_required_kwh_day: number | null;
+  building_heating_power_kw: number | null;
+  building_heating_power_peak_kw: number | null;
+  building_annual_heating_kwh: number | null;
+  building_annual_heating_kwh_m2: number | null;
+  building_energy_label: string | null;
+}

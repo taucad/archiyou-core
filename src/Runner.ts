@@ -537,11 +537,16 @@ export class Runner
             doc: state.ay.doc,
             calc: state.ay.calc,
             exporter: state.ay.exporter,
-            make: state.ay.make
+            make: state.ay.make,
+            // add services too
+            services: state.ay.services,
         });        
 
         // setup logging
         this._addLoggingToScopeState(state);
+
+        
+
         
         return state; // update remains the same
     }
