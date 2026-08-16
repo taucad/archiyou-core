@@ -98,15 +98,18 @@ export class Exporter
 
         const oc = this._ay.brep._oc;
         
-        let ocWriter = new oc.STEPControl_Writer_1();
-        let ocTransferResult = ocWriter.Transfer(sceneCompoundShape, 0, true, new oc.Message_ProgressRange_1()); 
-        ocTransferResult = ocTransferResult.value; // return a struct: use value() to get real value
-        if (ocTransferResult === 1)
+        let ocWriter = new oc.STEPControl_Writer();
+        const ocTransferResult = ocWriter.Transfer(
+            sceneCompoundShape,
+            oc.STEPControl_StepModelType.STEPControl_AsIs,
+            true,
+            new oc.Message_ProgressRange(),
+        );
+        if (ocTransferResult === oc.IFSelect_ReturnStatus.IFSelect_RetDone)
         {
             // Write the STEP File to the virtual Emscripten Filesystem Temporarily
-            let writeResult = ocWriter.Write(filename);
-            writeResult = writeResult.value;
-            if (writeResult === 1)
+            const writeResult = ocWriter.Write(filename);
+            if (writeResult === oc.IFSelect_ReturnStatus.IFSelect_RetDone)
             {
                 // Read the STEP File from the filesystem and clean up
                 let stepFileText = oc.FS.readFile("/" + filename, { encoding:"utf8" });
@@ -158,7 +161,7 @@ export class Exporter
         console.info(`Exporter::exportToSTEP: Output of ${sceneCompoundShape.NbChildren()} Shapes`);
         const ocStlWriter = new oc.StlAPI_Writer();
         ocStlWriter.ASCIIMode = false; // binary
-        const result = ocStlWriter.Write(sceneCompoundShape, filename, new oc.Message_ProgressRange_1()); // Shape, stream content, ASCI or not
+        const result = ocStlWriter.Write(sceneCompoundShape, filename, new oc.Message_ProgressRange()); // Shape, stream content, ASCI or not
 
         if (!result)
         {
@@ -190,9 +193,7 @@ export class Exporter
         - ShapeTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___shape_tool.html
         - TDF_Label: https://dev.opencascade.org/doc/refman/html/class_t_d_f___label.html
         - TDataStd_Name: https://dev.opencascade.org/doc/refman/html/class_t_data_std___name.html
-        - VisMaterialTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___vis_material_tool.html#aaa1fb4d64b9eb24ed86bbe6d368010ab
-        - XCAFDoc_VisMaterial - https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___vis_material.html
-        - VisMaterialPBR: https://dev.opencascade.org/doc/refman/html/struct_x_c_a_f_doc___vis_material_p_b_r.html
+        - XCAFDoc_ColorTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___color_tool.html
 
     */
     async exportToGLTF(shapes?:AnyShapeOrCollection, options?:ExportGLTFOptions, filename?:string):Promise<ArrayBuffer|null>
@@ -205,9 +206,9 @@ export class Exporter
         const meshingQuality = options?.quality || this.DEFAULT_MESH_QUALITY;
         filename = (typeof filename === 'string') ? filename : `file.${(options.binary) ? 'glb' : 'gltf'}`;
 
-        const docHandle = new oc.Handle_TDocStd_Document_2(new oc.TDocStd_Document(new oc.TCollection_ExtendedString_1()));
-
-        const ocShapeTool = oc.XCAFDoc_DocumentTool.prototype.constructor.ShapeTool(docHandle.get().Main()).get(); // autonaming is on by default
+        const document = new oc.TDocStd_Document(new oc.TCollection_ExtendedString());
+        const ocShapeTool = oc.XCAFDoc_DocumentTool.ShapeTool(document.Main());
+        const ocColorTool = oc.XCAFDoc_DocumentTool.ColorTool(document.Main());
         let ocIncMesh;
 
         /* For now we export all visible shapes in a flattened scene (without nested scenegraph) 
@@ -236,36 +237,34 @@ export class Exporter
 
                     const shapeName = `${shape.getId()}__${shape.getName()}`; // save obj_id and name into GLTF node
                     
-                    oc.TDataStd_Name.Set_2(ocShapeLabel, 
+                    oc.TDataStd_Name.Set(ocShapeLabel,
                                     oc.TDataStd_Name.GetID(), 
-                                    new oc.TCollection_ExtendedString_2(shapeName, false)); // Set_2 not according to docs (no Set_3)
+                                    new oc.TCollection_ExtendedString(shapeName, false)); // Set_2 not according to docs (no Set_3)
 
                     // Export basic material to GLTF
                     if (shape._getColorRGBA() !== null)
                     {
-                        const ocMaterialTool = oc.XCAFDoc_DocumentTool.prototype.constructor.VisMaterialTool(ocShapeLabel).get(); // returns Handle< XCAFDoc_VisMaterialTool >
-                        const ocMaterial = new oc.XCAFDoc_VisMaterial();
-                        const ocPBRMaterial = new oc.XCAFDoc_VisMaterialPBR(); // this is a struct
-                        ocPBRMaterial.BaseColor = new oc.Quantity_ColorRGBA_5(...shape._getColorRGBA()); // [ r,g,b,a]
-                        ocMaterial.SetPbrMaterial(ocPBRMaterial);
-                        const ocMaterialLabel = ocMaterialTool.AddMaterial_1( new oc.Handle_XCAFDoc_VisMaterial_2(ocMaterial), new oc.TCollection_AsciiString_2(shapeName)); // returns TDF_Label
-                        ocMaterialTool.SetShapeMaterial_1(ocShapeLabel, ocMaterialLabel);
-
-                        // NOTE: do we need to delete these OC classes (not here because we need them still). Save the references?
+                        const color = new oc.Quantity_ColorRGBA(...shape._getColorRGBA());
+                        ocColorTool.SetColor(ocShapeLabel, color, oc.XCAFDoc_ColorType.XCAFDoc_ColorSurf);
+                        color.delete();
                     }
                     
                     // triangulate BREP to mesh
-                    ocIncMesh = new oc.BRepMesh_IncrementalMesh_2(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false);
+                    ocIncMesh = new oc.BRepMesh_IncrementalMesh(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false);
                 }
         })
 
-        const ocGLFTWriter = new oc.RWGltf_CafWriter(new oc.TCollection_AsciiString_2(filename), meshingQuality);
+        const ocGLFTWriter = new oc.RWGltf_CafWriter(new oc.TCollection_AsciiString(filename), options.binary);
         
         const ocCoordSystemConverter = ocGLFTWriter.CoordinateSystemConverter();
-        ocCoordSystemConverter.SetInputCoordinateSystem_2(oc.RWMesh_CoordinateSystem.RWMesh_CoordinateSystem_Zup);
+        ocCoordSystemConverter.SetInputCoordinateSystem(oc.RWMesh_CoordinateSystem.RWMesh_CoordinateSystem_Zup);
         ocGLFTWriter.SetCoordinateSystemConverter(ocCoordSystemConverter);
         ocGLFTWriter.SetForcedUVExport(true); // to output UV coords
-        ocGLFTWriter.Perform_2(docHandle, new oc.TColStd_IndexedDataMapOfStringString_1(), new oc.Message_ProgressRange_1());
+        const didWrite = ocGLFTWriter.Perform(document, new oc.TColStd_IndexedDataMapOfStringString(), new oc.Message_ProgressRange());
+        if (!didWrite)
+        {
+            throw new Error(`Exporter::exportToGLTF: OCCT failed to write ${filename}`);
+        }
         
         const gltfFile = oc.FS.readFile(`./${filename}`, { encoding: 'binary' }); // only binary for now
         let gltfContent =  new Uint8Array(gltfFile.buffer) as Uint8Array; 
@@ -273,9 +272,11 @@ export class Exporter
         
         // clean up OC classes (if any shapes)
         ocShapeTool?.delete();
+        ocColorTool?.delete();
         ocIncMesh?.delete();
         ocGLFTWriter?.delete();
         ocCoordSystemConverter?.delete();
+        document.delete();
 
         console.info(`Exporter::exportToGLTF: Exported ${exportShapes.length} OC Shapes in ${Math.round(performance.now() - startGLTFExport)}ms`);
         const startGLTFExtra = performance.now();
@@ -339,7 +340,7 @@ export class Exporter
             if(Shape.isShape(entity)) // probably entities are all shapes but just to make sure
             {
                 const ocShape = entity._ocShape;
-                const ocIncMesh = new oc.BRepMesh_IncrementalMesh_2(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false);
+                const ocIncMesh = new oc.BRepMesh_IncrementalMesh(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false);
                 ocIncMeshes.push(ocIncMesh);
             }
         });
