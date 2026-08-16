@@ -31,7 +31,7 @@ As a platform and vision we are focused on these things.
 Archiyou is inspired and powered by the following projects:
 
 * [OpenCascade](https://www.opencascade.com/) - The open source geometry kernel on which Archiyou is based
-* [OpenCascade.js](https://ocjs.org) by Sebastian Alff - The WASM port of OpenCascade on which Archiyou depends
+* [libcascade](https://github.com/taucad/opencascade.js) - The OCCT WebAssembly package and custom-build toolchain on which Archiyou depends
 * [CadQuery](https://github.com/CadQuery/cadquery) by Dave Cowden and current CQ team - The script language that inspired the one of Archiyou
 * A lot of other open source projects. See list in the repo.
 
@@ -40,7 +40,6 @@ Archiyou is inspired and powered by the following projects:
 * [Replicad](https://replicad.xyz/) by Steve Genoud
 * [CadHub](https://cadhub.xyz/) by Kurt Hutten and team
 * [OpenSCAD](https://openscad.org) by Marius Kintel and Claire Wolf
-
 
 
 
