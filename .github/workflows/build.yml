@@ -4,9 +4,9 @@ name: build and test
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ develop ]
+    branches: [ main ]
 
 jobs:
   build:
@@ -23,5 +23,6 @@ jobs:
         node-version: '22'
         cache: 'pnpm'
     - run: pnpm install --frozen-lockfile
+    - run: pnpm typecheck
     - run: pnpm build
     - run: pnpm test
