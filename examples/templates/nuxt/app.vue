@@ -1,30 +1,12 @@
 <script setup lang="ts">
 
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
-// import { init } from 'archiyou'
-
-//// DEBUG IMPORTS
-// direct from source
-import { init, Brep } from '../../../src/internal';
+import { Brep, init } from '../../../src/internal';
 
 const ocLoaded = ref(false);
-const glbData = ref(null);
-let blobUrl = null;
-
-// Create a blob URL from the GLB binary data
-const gltfSourceUrl = computed(() => {
-  if (!glbData.value) return null;
-  
-  // Revoke previous URL to prevent memory leaks
-  if (blobUrl) {
-    URL.revokeObjectURL(blobUrl);
-  }
-  
-  const blob = new Blob([glbData.value], { type: 'model/gltf-binary' });
-  blobUrl = URL.createObjectURL(blob);
-  return blobUrl;
-});
+const gltfSourceUrl = ref<string | null>(null);
+let blobUrl: string | null = null;
 
 // Cleanup blob URL on unmount
 onUnmounted(() => {
@@ -57,7 +39,9 @@ onMounted(async () =>
                     )
                     .color('red');
 
-  glbData.value = await myModel.toGLTF();
+  const glbData = await myModel.toGLTF();
+  blobUrl = URL.createObjectURL(new Blob([glbData], { type: 'model/gltf-binary' }));
+  gltfSourceUrl.value = blobUrl;
 
   console.log(`==== Model generation: ${performance.now() - t0} ms`)
 
@@ -94,5 +78,3 @@ onMounted(async () =>
     height: 100%;
   }
 </style>
-
-
