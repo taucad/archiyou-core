@@ -286,10 +286,5 @@ export default defineBuild({
       name: 'single',
       outputName: 'archiyou-opencascade',
     },
-    {
-      name: 'multi',
-      outputName: 'archiyou-opencascade-multi',
-      compilerFlags: { threads: true },
-    },
   ],
 });

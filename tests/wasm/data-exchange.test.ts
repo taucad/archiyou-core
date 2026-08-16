@@ -2,20 +2,16 @@ import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { describe, expect, test } from 'vitest';
 import { Brep, init } from '../../src/internal';
-import initSingle from '../../src/wasm/archiyou-opencascade.js';
-import initMulti from '../../src/wasm/archiyou-opencascade-multi.js';
+import initOpenCascade from '../../src/wasm/archiyou-opencascade.js';
 
-const variants = [
-  ['single', initSingle, 'archiyou-opencascade.wasm'],
-  ['multi', initMulti, 'archiyou-opencascade-multi.wasm'],
-] as const;
-
-describe.each(variants)('%s-threaded data exchange', (_, init, wasm) => {
+describe('data exchange', () => {
   test('exports an indexed colored GLB', async () => {
-    const oc = await init({
+    const oc = await initOpenCascade({
       locateFile: (file) =>
         file.endsWith('.wasm')
-          ? fileURLToPath(new URL(`../../src/wasm/${wasm}`, import.meta.url))
+          ? fileURLToPath(
+              new URL('../../src/wasm/archiyou-opencascade.wasm', import.meta.url),
+            )
           : file,
     });
 
@@ -72,7 +68,6 @@ describe.each(variants)('%s-threaded data exchange', (_, init, wasm) => {
     ]) {
       value.delete();
     }
-    oc.PThread?.terminateAllThreads?.();
   }, 60_000);
 });
 
