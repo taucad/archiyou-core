@@ -1486,6 +1486,29 @@ import { DxfWriter, Units } from '@tarikjabiri/dxf';
       */
       boundary():Wire
       {
+         /*
+         console.log('=========== BOUNDARY ===========');
+         console.log(this._oc.NCollection_HSequence_TopoDS_Shape);
+         console.log(this._oc.ShapeAnalysis_FreeBounds);
+         */
+
+         const ocEdges = new this._oc.NCollection_HSequence_TopoDS_Shape();
+         let ocShapeSequence = null;
+
+         try
+         {
+            this.edges().forEach(edge => ocEdges.Append(edge._ocShape));
+            ocShapeSequence = this._oc.ShapeAnalysis_FreeBounds.ConnectEdgesToWires(
+                     ocEdges,
+                     0.1,
+                     false);
+         }
+         finally
+         {
+            ocShapeSequence?.delete();
+            ocEdges.delete();
+         }
+
          return null;
       }
 
@@ -2840,5 +2863,3 @@ import { DxfWriter, Units } from '@tarikjabiri/dxf';
 
 
  }
-
-

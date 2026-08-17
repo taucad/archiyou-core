@@ -147,9 +147,11 @@ export class OcLoader
   async _loadOcBrowserAsync()
   {
     console.log(`OcLoader::_loadOcBrowserAsync(): Loading OpenCascade WASM module`);
+    // Emscripten 6's module factory resolves the binary through locateFile.
     const wasmPath = await this._getAbsPath(this.ocWasmModulePath);
     const ocJs = (await import(await this._getAbsPath(this.ocJsModulePath))).default;
 
+    // https://emscripten.org/docs/api_reference/module.html#Module.locateFile
     const oc = await ocJs({ 
         locateFile(path)
         {

@@ -1795,7 +1795,7 @@ declare class XCAFDoc_DocumentTool extends TDataStd_GenericEmpty {
   /**
    * Creates (if it does not exist) {@link XCAFDoc_VisMaterialTool | `XCAFDoc_VisMaterialTool`} attribute on `VisMaterialLabel()`. Should not be confused with `MaterialTool()` defining physical/manufacturing materials.
    */
-  static VisMaterialTool(theLabel: TDF_Label): unknown;
+  static VisMaterialTool(theLabel: TDF_Label): XCAFDoc_VisMaterialTool;
   /**
    * Checks for the VisMaterialTool attribute on the label's document Returns TRUE if Tool exists, ELSE if it has not been created.
    */
@@ -2216,6 +2216,291 @@ declare class XCAFDoc_ShapeTool extends TDataStd_GenericEmpty {
   static get_type_descriptor(): unknown;
   DynamicType(): unknown;
   NewEmpty(): TDF_Attribute;
+  /** Releases the C++ object. The caller must ensure no further access. */
+  delete(): void;
+  [Symbol.dispose](): void;
+}
+
+/**
+ * Attribute storing Material definition for visualization purposes.
+ *
+ * Visualization material provides extended information about how object should be displayed on the screen (albedo, metalness, roughness - not just a single color as in case of {@link XCAFDoc_Color | `XCAFDoc_Color`}). It is expected to correlate with physical material properties ({@link XCAFDoc_Material | `XCAFDoc_Material`}), but not necessarily (like painted/polished/rusty object).
+ *
+ * The document defines the list of visualization materials via global attribute {@link XCAFDoc_VisMaterialTool | `XCAFDoc_VisMaterialTool`}, while particular material assignment to the shape is done through tree-nodes links. Therefore, {@link XCAFDoc_VisMaterialTool | `XCAFDoc_VisMaterialTool`} methods should be used for managing {@link XCAFDoc_VisMaterial | `XCAFDoc_VisMaterial`} attributes.
+ *
+ * Visualization material definition consists of two options: Common and PBR (for Physically Based Rendering). Common material definition is an obsolete model defined by very first version of OpenGL graphics API and having specific hardware-accelerated implementation in past (like T&L). PBR metallic-roughness model is closer to physical material properties, and intended to be used within physically-based renderer.
+ *
+ * For compatibility reasons, this attribute allows defining both material models, so that it is up-to Data Exchange and Application deciding which one to define and use for rendering (depending on viewer capabilities). Automatic conversion from one model to another is possible, but lossy (converted material will not look the same).
+ *
+ * Within Data Exchange, different file formats have different capabilities for storing visualization material properties from simple color (STEP, IGES), to common (OBJ, glTF 1.0) and PBR (glTF 2.0). This should be taken into account while defining or converting document into one or another format - material definition might be lost or disturbed.
+ * @see {@link XCAFDoc_VisMaterialTool | `XCAFDoc_VisMaterialTool`}
+ */
+declare class XCAFDoc_VisMaterial extends TDF_Attribute {
+  /**
+   * Empty constructor.
+   */
+  constructor();
+  // dropped: FillMaterialAspect param 0 resolves to excluded type Graphic3d_MaterialAspect
+  static get_type_name(): string;
+  static get_type_descriptor(): unknown;
+  DynamicType(): unknown;
+  /**
+   * Return attribute GUID.
+   */
+  static GetID(): Standard_GUID;
+  /**
+   * Return TRUE if material definition is empty.
+   */
+  IsEmpty(): boolean;
+  /**
+   * Fill in graphic aspects.
+   */
+  FillAspect(theAspect: unknown): void;
+  /**
+   * Return TRUE if metal-roughness PBR material is defined; FALSE by default.
+   */
+  HasPbrMaterial(): boolean;
+  /**
+   * Return metal-roughness PBR material. Note that default constructor creates an empty material (.
+   * @see `XCAFDoc_VisMaterialPBR::IsDefined`
+   */
+  PbrMaterial(): XCAFDoc_VisMaterialPBR;
+  /**
+   * Setup metal-roughness PBR material.
+   */
+  SetPbrMaterial(theMaterial: XCAFDoc_VisMaterialPBR): void;
+  /**
+   * Setup undefined metal-roughness PBR material.
+   */
+  UnsetPbrMaterial(): void;
+  /**
+   * Return TRUE if common material is defined; FALSE by default.
+   */
+  HasCommonMaterial(): boolean;
+  /**
+   * Return common material. Note that default constructor creates an empty material (.
+   * @see `XCAFDoc_VisMaterialCommon::IsDefined`
+   */
+  CommonMaterial(): unknown;
+  /**
+   * Setup common material.
+   */
+  SetCommonMaterial(theMaterial: unknown): void;
+  /**
+   * Setup undefined common material.
+   */
+  UnsetCommonMaterial(): void;
+  /**
+   * Return base color.
+   */
+  BaseColor(): Quantity_ColorRGBA;
+  /**
+   * Return alpha mode; Graphic3d_AlphaMode_BlendAuto by default.
+   */
+  AlphaMode(): unknown;
+  /**
+   * Return alpha cutoff value; 0.5 by default.
+   */
+  AlphaCutOff(): number;
+  /**
+   * Set alpha mode.
+   */
+  SetAlphaMode(theMode: unknown, theCutOff?: number): void;
+  /**
+   * Returns if the material is double or single sided; Graphic3d_TypeOfBackfacingModel_Auto by default.
+   */
+  FaceCulling(): unknown;
+  /**
+   * Specifies whether the material is double or single sided.
+   */
+  SetFaceCulling(theFaceCulling: unknown): void;
+  /**
+   * @deprecated
+   */
+  IsDoubleSided(): boolean;
+  /**
+   * @deprecated
+   */
+  SetDoubleSided(theIsDoubleSided: boolean): void;
+  /**
+   * Return material name / tag (transient data, not stored in the document).
+   */
+  RawName(): unknown;
+  /**
+   * Set material name / tag (transient data, not stored in the document).
+   */
+  SetRawName(theName: unknown): void;
+  /**
+   * Compare two materials. Performs deep comparison by actual values - e.g. can be useful for merging materials.
+   */
+  IsEqual(theOther: XCAFDoc_VisMaterial): boolean;
+  /**
+   * Return Common material or convert PBR into Common material.
+   */
+  ConvertToCommonMaterial(): unknown;
+  /**
+   * Return PBR material or convert Common into PBR material.
+   */
+  ConvertToPbrMaterial(): XCAFDoc_VisMaterialPBR;
+  ID(): Standard_GUID;
+  Restore(anAttribute: TDF_Attribute): void;
+  NewEmpty(): TDF_Attribute;
+  Paste(intoAttribute: TDF_Attribute, aRelocationTable: unknown): void;
+  /** Releases the C++ object. The caller must ensure no further access. */
+  delete(): void;
+  [Symbol.dispose](): void;
+}
+
+/**
+ * Metallic-roughness PBR material definition.
+ */
+declare class XCAFDoc_VisMaterialPBR {
+  /**
+   * Empty constructor.
+   */
+  constructor();
+  BaseColorTexture: unknown;
+  MetallicRoughnessTexture: unknown;
+  EmissiveTexture: unknown;
+  OcclusionTexture: unknown;
+  NormalTexture: unknown;
+  BaseColor: Quantity_ColorRGBA;
+  EmissiveFactor: [number, number, number];
+  Metallic: number;
+  Roughness: number;
+  RefractionIndex: number;
+  IsDefined: boolean;
+  /**
+   * Compare two materials.
+   */
+  IsEqual(theOther: XCAFDoc_VisMaterialPBR): boolean;
+  /** Releases the C++ object. The caller must ensure no further access. */
+  delete(): void;
+  [Symbol.dispose](): void;
+}
+
+/**
+ * Provides tools to store and retrieve attributes (visualization materials) of {@link TopoDS_Shape | `TopoDS_Shape`} in and from {@link TDocStd_Document | `TDocStd_Document`}.
+ *
+ * This attribute defines the list of visualization materials ({@link XCAFDoc_VisMaterial | `XCAFDoc_VisMaterial`}) within the whole document. Particular material is assigned to the shape through tree-nodes links.
+ *
+ * Visualization materials might co-exists with independent color attributes ({@link XCAFDoc_ColorTool | `XCAFDoc_ColorTool`}), but beware to preserve consistency between them (it is better using one attribute type at once to avoid ambiguity). Unlike color attributes, list of materials should be managed explicitly by application, so that there is no tool eliminating material duplicates or removing unused materials.
+ * @see {@link XCAFDoc_VisMaterial | `XCAFDoc_VisMaterial`}
+ */
+declare class XCAFDoc_VisMaterialTool extends TDF_Attribute {
+  /**
+   * Empty constructor.
+   */
+  constructor();
+  static get_type_name(): string;
+  static get_type_descriptor(): unknown;
+  DynamicType(): unknown;
+  /**
+   * Creates (if not exist) ColorTool.
+   */
+  static Set(L: TDF_Label): XCAFDoc_VisMaterialTool;
+  static GetID(): Standard_GUID;
+  /**
+   * returns the label under which colors are stored
+   */
+  BaseLabel(): TDF_Label;
+  /**
+   * Returns internal {@link XCAFDoc_ShapeTool | `XCAFDoc_ShapeTool`} tool.
+   */
+  ShapeTool(): XCAFDoc_ShapeTool;
+  /**
+   * Returns TRUE if Label belongs to a Material Table.
+   */
+  IsMaterial(theLabel: TDF_Label): boolean;
+  /**
+   * Returns Material defined by specified Label, or NULL if the label is not in Material Table.
+   */
+  static GetMaterial(theMatLabel: TDF_Label): XCAFDoc_VisMaterial;
+  /**
+   * Adds Material definition to a Material Table and returns its Label.
+   */
+  AddMaterial(theMat: XCAFDoc_VisMaterial, theName: TCollection_AsciiString): TDF_Label;
+  /**
+   * Adds Material definition to a Material Table and returns its Label.
+   */
+  AddMaterial(theName: TCollection_AsciiString): TDF_Label;
+  /**
+   * Removes Material from the Material Table.
+   */
+  RemoveMaterial(theLabel: TDF_Label): void;
+  /**
+   * Returns a sequence of Materials currently stored in the Material Table.
+   * @param Labels Mutated in place; read the updated value from this argument after the call.
+   */
+  GetMaterials(Labels: NCollection_Sequence_TDF_Label): void;
+  /**
+   * Sets a link with GUID `XCAFDoc::VisMaterialRefGUID()` from shape label to material label.
+   * @param theMaterialLabel material label
+   * @returns FALSE if cannot find a label for shape
+   */
+  SetShapeMaterial(theShapeLabel: TDF_Label, theMaterialLabel: TDF_Label): void;
+  /**
+   * Sets a link with GUID `XCAFDoc::VisMaterialRefGUID()` from shape label to material label.
+   * @param theShape shape
+   * @param theMaterialLabel material label
+   * @returns FALSE if cannot find a label for shape
+   */
+  SetShapeMaterial(theShape: TopoDS_Shape, theMaterialLabel: TDF_Label): boolean;
+  /**
+   * Removes a link with GUID `XCAFDoc::VisMaterialRefGUID()` from shape label to material.
+   */
+  UnSetShapeMaterial(theShapeLabel: TDF_Label): void;
+  /**
+   * Removes a link with GUID `XCAFDoc::VisMaterialRefGUID()` from shape label to material.
+   * @returns TRUE if such link existed
+   */
+  UnSetShapeMaterial(theShape: TopoDS_Shape): boolean;
+  /**
+   * Returns TRUE if label has a material assignment.
+   */
+  IsSetShapeMaterial(theLabel: TDF_Label): boolean;
+  /**
+   * Returns TRUE if shape has a material assignment.
+   */
+  IsSetShapeMaterial(theShape: TopoDS_Shape): boolean;
+  /**
+   * Returns material assigned to the shape label.
+   */
+  static GetShapeMaterial(theShapeLabel: TDF_Label): XCAFDoc_VisMaterial;
+  /**
+   * Returns material assigned to shape or NULL if not assigned.
+   */
+  GetShapeMaterial(theShape: TopoDS_Shape): XCAFDoc_VisMaterial;
+  /**
+   * Returns label with material assigned to shape label.
+   * @param theShapeLabel shape label
+   * @param theMaterialLabel material label Mutated in place; read the updated value from this argument after the call.
+   * @returns FALSE if no material is assigned
+   */
+  static GetShapeMaterial(theShapeLabel: TDF_Label, theMaterialLabel: TDF_Label): boolean;
+  /**
+   * Returns label with material assigned to shape.
+   * @param theShape shape
+   * @param theMaterialLabel material label Mutated in place; read the updated value from this argument after the call.
+   * @returns FALSE if no material is assigned
+   */
+  GetShapeMaterial(theShape: TopoDS_Shape, theMaterialLabel: TDF_Label): boolean;
+  /**
+   * Returns GUID of this attribute type.
+   */
+  ID(): Standard_GUID;
+  /**
+   * Does nothing.
+   */
+  Restore(anAttribute: TDF_Attribute): void;
+  /**
+   * Creates new instance of this tool.
+   */
+  NewEmpty(): TDF_Attribute;
+  /**
+   * Does nothing.
+   */
+  Paste(intoAttribute: TDF_Attribute, aRelocationTable: unknown): void;
   /** Releases the C++ object. The caller must ensure no further access. */
   delete(): void;
   [Symbol.dispose](): void;
@@ -2903,82 +3188,6 @@ declare const GeomAbs_SurfaceType: {
   readonly GeomAbs_OffsetSurface: 'GeomAbs_OffsetSurface';
   readonly GeomAbs_OtherSurface: 'GeomAbs_OtherSurface';
 };
-
-/**
- * Provides an algorithm to explore, inside a triangulation, the adjacency data for a node or a triangle. Adjacency data for a node consists of triangles which contain the node. Adjacency data for a triangle consists of:
- *
- * - the 3 adjacent triangles which share an edge of the triangle,
- * - and the 3 nodes which are the other nodes of these adjacent triangles. Example Inside a triangulation, a triangle T has nodes n1, n2 and n3. It has adjacent triangles AT1, AT2 and AT3 where:
- * - AT1 shares the nodes n2 and n3,
- * - AT2 shares the nodes n3 and n1,
- * - AT3 shares the nodes n1 and n2. It has adjacent nodes an1, an2 and an3 where:
- * - an1 is the third node of AT1,
- * - an2 is the third node of AT2,
- * - an3 is the third node of AT3. So triangle AT1 is composed of nodes n2, n3 and an1. There are two ways of using this algorithm.
- * - From a given node you can look for one triangle that passes through the node, then look for the triangles adjacent to this triangle, then the adjacent nodes. You can thus explore the triangulation step by step (functions Triangle, Triangles and Nodes).
- * - From a given node you can look for all the triangles that pass through the node (iteration method, using the functions Initialize, More, Next and Value). A Connect object can be seen as a tool which analyzes a triangulation and translates it into a series of triangles. By doing this, it provides an interface with other tools and applications working on basic triangles, and which do not work directly with a {@link Poly_Triangulation | `Poly_Triangulation`}.
- */
-declare class Poly_Connect {
-  /**
-   * Constructs an uninitialized algorithm.
-   */
-  constructor();
-  /**
-   * Constructs an algorithm to explore the adjacency data of nodes or triangles for the triangulation T.
-   */
-  constructor(theTriangulation: Poly_Triangulation);
-  /**
-   * Initialize the algorithm to explore the adjacency data of nodes or triangles for the triangulation theTriangulation.
-   */
-  Load(theTriangulation: Poly_Triangulation): void;
-  /**
-   * Returns the triangulation analyzed by this tool.
-   */
-  Triangulation(): Poly_Triangulation;
-  /**
-   * Returns the index of a triangle containing the node at index N in the nodes table specific to the triangulation analyzed by this tool.
-   */
-  Triangle(N: number): number;
-  /**
-   * Returns in t1, t2 and t3, the indices of the 3 triangles adjacent to the triangle at index T in the triangles table specific to the triangulation analyzed by this tool. Warning Null indices are returned when there are fewer than 3 adjacent triangles.
-   * @returns A result object with fields:
-   * - `t1`: updated value from the call.
-   * - `t2`: updated value from the call.
-   * - `t3`: updated value from the call.
-   */
-  Triangles(T: number, t1?: number, t2?: number, t3?: number): { t1: number; t2: number; t3: number };
-  /**
-   * Returns, in n1, n2 and n3, the indices of the 3 nodes adjacent to the triangle referenced at index T in the triangles table specific to the triangulation analyzed by this tool. Warning Null indices are returned when there are fewer than 3 adjacent nodes.
-   * @returns A result object with fields:
-   * - `n1`: updated value from the call.
-   * - `n2`: updated value from the call.
-   * - `n3`: updated value from the call.
-   */
-  Nodes(T: number, n1?: number, n2?: number, n3?: number): { n1: number; n2: number; n3: number };
-  /**
-   * Initializes an iterator to search for all the triangles containing the node referenced at index N in the nodes table, for the triangulation analyzed by this tool. The iterator is managed by the following functions:
-   *
-   * - More, which checks if there are still elements in the iterator
-   * - Next, which positions the iterator on the next element
-   * - Value, which returns the current element. The use of such an iterator provides direct access to the triangles around a particular node, i.e. it avoids iterating on all the component triangles of a triangulation. Example {@link Poly_Connect | `Poly_Connect`} C(Tr); for (C.Initialize(n1);C.More();C.Next()) { t = C.Value(); }
-   */
-  Initialize(N: number): void;
-  /**
-   * Returns true if there is another element in the iterator defined with the function Initialize (i.e. if there is another triangle containing the given node).
-   */
-  More(): boolean;
-  /**
-   * Advances the iterator defined with the function Initialize to access the next triangle. Note: There is no action if the iterator is empty (i.e. if the function More returns false).-.
-   */
-  Next(): void;
-  /**
-   * Returns the index of the current triangle to which the iterator, defined with the function Initialize, points. This is an index in the triangles table specific to the triangulation analyzed by this tool.
-   */
-  Value(): number;
-  /** Releases the C++ object. The caller must ensure no further access. */
-  delete(): void;
-  [Symbol.dispose](): void;
-}
 
 /**
  * This class provides a polygon in 3D space, based on the triangulation of a surface. It may be the approximate representation of a curve on the surface, or more generally the shape. A PolygonOnTriangulation is defined by a table of nodes. Each node is an index in the table of nodes specific to a triangulation, and represents a point on the surface. If the polygon is closed, the index of the point of closure is repeated at the end of the table of nodes.
@@ -13800,23 +14009,6 @@ declare class ShapeAnalysis_FreeBounds {
    */
   static ConnectEdgesToWires(edges: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): NCollection_HSequence_TopoDS_Shape;
   /**
-   * Builds sequence of <wires> out of sequence of not sorted <edges>. Tries to build wires of maximum length. Building a wire is stopped when no edges can be connected to it at its head or at its tail.
-   *
-   * Orientation of the edge can change when connecting. Edges having INTERNAL or EXTERNAL orientation are ignored. If <shared> is True connection is performed only when adjacent edges share the same vertex. If <shared> is False connection is performed only when ends of adjacent edges are at distance less than <toler>. Connects edges from the given sequence into wires.
-   * @param edges the sequence of edges to connect
-   * @param toler distance tolerance for connection
-   * @param shared if true, connection uses shared vertices only
-   * @returns sequence of resulting wires
-   */
-  static ConnectEdgesToWires_1(edges: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): NCollection_HSequence_TopoDS_Shape;
-  /**
-   * @returns A result object with fields:
-   * - `wires`: owned by the returned envelope.
-   * Dispose the returned envelope to release owned Handle fields.
-   * @deprecated
-   */
-  static ConnectEdgesToWires_2(edges: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): { wires: NCollection_HSequence_TopoDS_Shape; [Symbol.dispose](): void };
-  /**
    * Connects wires from the given sequence into longer wires.
    * @param iwires the sequence of input wires
    * @param toler distance tolerance for connection
@@ -13824,26 +14016,6 @@ declare class ShapeAnalysis_FreeBounds {
    * @returns sequence of resulting wires
    */
   static ConnectWiresToWires(iwires: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): NCollection_HSequence_TopoDS_Shape;
-  /**
-   * Connects wires from the given sequence into longer wires.
-   * @param iwires the sequence of input wires
-   * @param toler distance tolerance for connection
-   * @param shared if true, connection uses shared vertices only
-   * @returns sequence of resulting wires
-   */
-  static ConnectWiresToWires_1(iwires: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): NCollection_HSequence_TopoDS_Shape;
-  /**
-   * Builds sequence of <owires> out of sequence of not sorted <iwires>. Tries to build wires of maximum length. Building a wire is stopped when no wires can be connected to it at its head or at its tail.
-   *
-   * Orientation of the wire can change when connecting. If <shared> is True connection is performed only when adjacent wires share the same vertex. If <shared> is False connection is performed only when ends of adjacent wires are at distance less than <toler>. Map <vertices> stores the correspondence between original end vertices of the wires and new connecting vertices. Connects wires from the given sequence into longer wires. Also fills the map of original to new connecting vertices.
-   * @param iwires the sequence of input wires
-   * @param toler distance tolerance for connection
-   * @param shared if true, connection uses shared vertices only
-   * @returns A result object with fields:
-   * - `owires`: owned by the returned envelope.
-   * Dispose the returned envelope to release owned Handle fields.
-   */
-  static ConnectWiresToWires_2(iwires: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean): { owires: NCollection_HSequence_TopoDS_Shape; [Symbol.dispose](): void };
   /**
    * Builds sequence of <owires> out of sequence of not sorted <iwires>. Tries to build wires of maximum length. Building a wire is stopped when no wires can be connected to it at its head or at its tail.
    *
@@ -13855,14 +14027,6 @@ declare class ShapeAnalysis_FreeBounds {
    * @returns sequence of resulting wires
    */
   static ConnectWiresToWires(iwires: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean, vertices: NCollection_DataMap_TopoDS_Shape_TopoDS_Shape_TopTools_ShapeMapHasher): NCollection_HSequence_TopoDS_Shape;
-  /**
-   * @param vertices Mutated in place; read the updated value from this argument after the call.
-   * @returns A result object with fields:
-   * - `owires`: owned by the returned envelope.
-   * Dispose the returned envelope to release owned Handle fields.
-   * @deprecated
-   */
-  static ConnectWiresToWires(iwires: NCollection_HSequence_TopoDS_Shape, toler: number, shared: boolean, vertices: NCollection_DataMap_TopoDS_Shape_TopoDS_Shape_TopTools_ShapeMapHasher): { owires: NCollection_HSequence_TopoDS_Shape; [Symbol.dispose](): void };
   /**
    * Extracts closed sub-wires out of <wires> and adds them to <closed>, open wires remained after extraction are put into <open>. If <shared> is True extraction is performed only when edges share the same vertex. If <shared> is False connection is performed only when ends of the edges are at distance less than <toler>.
    * @returns A result object with fields:
@@ -13971,7 +14135,6 @@ declare class ShapeAnalysis_FreeBoundsProperties {
   OpenFreeBound(index: number): unknown;
   DispatchBounds(): boolean;
   CheckContours(prec?: number): boolean;
-  CheckNotches(prec: number): boolean;
   CheckNotches(prec: number): { returnValue: boolean; fbData: unknown; [Symbol.dispose](): void };
   CheckNotches(freebound: TopoDS_Wire, num: number, notch: TopoDS_Wire, distMax: number, prec: number): { returnValue: boolean; distMax: number };
   FillProperties(prec: number): { returnValue: boolean; fbData: unknown; [Symbol.dispose](): void };
@@ -16683,40 +16846,12 @@ declare class BRepGProp_Face {
    */
   GetUKnots(theUMin: number, theUMax: number): NCollection_HArray1_double;
   /**
-   * Returns an array of U knots of the face. The first and last elements of the array will be theUMin and theUMax. The middle elements will be the U Knots of the face greater then theUMin and lower then theUMax in increasing order. If the face is not a BSpline, the array initialized with theUMin and theUMax only.
-   * @param theUMin lower U bound
-   * @param theUMax upper U bound
-   * @returns array of U knot values
-   */
-  GetUKnots_1(theUMin: number, theUMax: number): NCollection_HArray1_double;
-  /**
-   * @returns A result object with fields:
-   * - `theUKnots`: owned by the returned envelope.
-   * Dispose the returned envelope to release owned Handle fields.
-   * @deprecated
-   */
-  GetUKnots_2(theUMin: number, theUMax: number): { theUKnots: NCollection_HArray1_double; [Symbol.dispose](): void };
-  /**
    * Returns an array of combination of T knots of the arc and V knots of the face. The first and last elements of the array will be theTMin and theTMax. The middle elements will be the Knots of the arc and the values of parameters of arc on which the value points have V coordinates close to V knots of face. All the parameter will be greater then theTMin and lower then theTMax in increasing order. If the face is not a BSpline, the array initialized with theTMin and theTMax only.
    * @param theTMin lower T bound
    * @param theTMax upper T bound
    * @returns array of T knot values
    */
   GetTKnots(theTMin: number, theTMax: number): NCollection_HArray1_double;
-  /**
-   * Returns an array of combination of T knots of the arc and V knots of the face. The first and last elements of the array will be theTMin and theTMax. The middle elements will be the Knots of the arc and the values of parameters of arc on which the value points have V coordinates close to V knots of face. All the parameter will be greater then theTMin and lower then theTMax in increasing order. If the face is not a BSpline, the array initialized with theTMin and theTMax only.
-   * @param theTMin lower T bound
-   * @param theTMax upper T bound
-   * @returns array of T knot values
-   */
-  GetTKnots_1(theTMin: number, theTMax: number): NCollection_HArray1_double;
-  /**
-   * @returns A result object with fields:
-   * - `theTKnots`: owned by the returned envelope.
-   * Dispose the returned envelope to release owned Handle fields.
-   * @deprecated
-   */
-  GetTKnots_2(theTMin: number, theTMax: number): { theTKnots: NCollection_HArray1_double; [Symbol.dispose](): void };
   /** Releases the C++ object. The caller must ensure no further access. */
   delete(): void;
   [Symbol.dispose](): void;
@@ -16954,7 +17089,7 @@ declare class BRepLib_ToolTriangulatedShape {
    * @param theTris the definition of a face triangulation
    * @param thePolyConnect optional, initialized tool for exploring triangulation Mutated in place; read the updated value from this argument after the call.
    */
-  static ComputeNormals(theFace: TopoDS_Face, theTris: Poly_Triangulation, thePolyConnect: Poly_Connect): void;
+  static ComputeNormals(theFace: TopoDS_Face, theTris: Poly_Triangulation, thePolyConnect: unknown): void;
   /** Releases the C++ object. The caller must ensure no further access. */
   delete(): void;
   [Symbol.dispose](): void;
@@ -26035,154 +26170,6 @@ declare class NCollection_Array1_float {
    * Set value.
    */
   SetValue(theIndex: number, theItem: number): void;
-  /**
-   * Changes the lowest bound. Do not move data.
-   */
-  UpdateLowerBound(theLower: number): void;
-  /**
-   * Changes the upper bound. Do not move data.
-   */
-  UpdateUpperBound(theUpper: number): void;
-  /**
-   * Resizes the array to specified bounds. No re-allocation will be done if length of array does not change, but existing values will not be discarded if theToCopyData set to FALSE.
-   * @param theLower new lower bound of array
-   * @param theUpper new upper bound of array
-   * @param theToCopyData flag to copy existing data into new array
-   */
-  Resize(theLower: number, theUpper: number, theToCopyData: boolean): void;
-  /**
-   * Resizes the array to theSize elements, keeping the lower bound unchanged.
-   * @param theSize new number of elements
-   * @param theToCopyData flag to copy existing data into new array
-   */
-  Resize(theSize: number, theToCopyData: boolean): void;
-  IsDeletable(): boolean;
-  /** Releases the C++ object. The caller must ensure no further access. */
-  delete(): void;
-  [Symbol.dispose](): void;
-}
-
-/**
- * The class `NCollection_Array1` represents unidimensional arrays of fixed size known at run time. The range of the index is user defined. An array1 can be constructed with a "C array". This functionality is useful to call methods expecting an Array1. It allows to carry the bounds inside the arrays.
- *
- * Examples:
- *
- * ```
- * Itemtab[100];//anexamplewithaCarray NCollection_Array1<Item>ttab(tab[0],1,100); NCollection_Array1<Item>tttab(ttab(10),10,20);//asliceofttab
- * ```
- *
- * If you want to reindex an array from 1 to Length do:
- *
- * ```
- * NCollection_Array1<Item>tab1(tab(tab.Lower()),1,tab.Length());
- * ```
- *
- * Warning: Programs client of such a class must be independent of the range of the first element. Then, a C++ for loop must be written like this
- *
- * ```
- * for(i=A.Lower();i<=A.Upper();i++)
- * ```
- *
- * Zero-based (size_t) construction mode: Use `NCollection_Array1(size_t theSize)` or `NCollection_Array1(pointer, size_t)` to create a zero-based array (`Lower()`==0). In this mode `At()`/ChangeAt() and STL iterators are the preferred access path - they address elements directly without any offset subtraction. Buffer-reuse variants do NOT own the memory and will not free it on destruction.
- *
- * ```
- * intaBuffer[100]; NCollection_Array1<int>aZero(100);//allocates,lower=0 NCollection_Array1<int>aWrap(aBuffer,100);//wrapsaBuffer,lower=0,notowner for(size_ti=0;i<aWrap.Size();++i) aWrap.At(i)=static_cast<int>(i);
- * ```
- */
-declare class NCollection_Array1_gp_Dir {
-  constructor();
-  /**
-   * Zero-based constructor: allocates theSize elements with lower bound 0. Use `At()`/ChangeAt() or STL iterators for optimal access (no offset subtraction).
-   */
-  constructor(theSize: number);
-  /**
-   * Copy constructor.
-   */
-  constructor(theOther: NCollection_Array1_gp_Dir);
-  constructor(theLower: number, theUpper: number);
-  /**
-   * Zero-based constructor from first element reference. When theUseBuffer is true, wraps contiguous storage starting at theBegin. Otherwise allocates own storage of theSize elements.
-   */
-  constructor(theBegin: gp_Dir, theSize: number, theUseBuffer: boolean);
-  constructor(theBegin: gp_Dir, theLower: number, theUpper: number, theUseBuffer?: boolean);
-  /**
-   * Initialise the items with theValue.
-   */
-  Init(theValue: gp_Dir): void;
-  /**
-   * Size query.
-   */
-  Size(): number;
-  /**
-   * Length query (legacy int-returning API).
-   */
-  Length(): number;
-  /**
-   * Return TRUE if array has zero length.
-   */
-  IsEmpty(): boolean;
-  /**
-   * Lower bound.
-   */
-  Lower(): number;
-  /**
-   * Upper bound.
-   */
-  Upper(): number;
-  /**
-   * Replaces this array by a copy of theOther array. Bounds and length are copied from theOther. When this array wraps an external (non-owned) buffer:
-   *
-   * - if theOther has the same length, values are copied in place into the external buffer and ownership is unchanged;
-   * - if theOther has a different length, this array detaches from the external buffer and allocates a fresh owned buffer. Use `CopyValues()` to preserve this array's bounds.
-   */
-  Assign(theOther: NCollection_Array1_gp_Dir): NCollection_Array1_gp_Dir;
-  /**
-   * Copies values from theOther array without changing this array bounds. This array should be pre-allocated and have the same length as theOther; otherwise exception Standard_DimensionMismatch is thrown.
-   */
-  CopyValues(theOther: NCollection_Array1_gp_Dir): NCollection_Array1_gp_Dir;
-  /**
-   * Move assignment. This array will borrow all the data from theOther. The moved object will keep pointer to the memory buffer and range, but it will not free the buffer on destruction.
-   * @param theOther Mutated in place; read the updated value from this argument after the call.
-   */
-  Move(theOther: NCollection_Array1_gp_Dir): NCollection_Array1_gp_Dir;
-  /**
-   * @returns first element
-   */
-  First(): gp_Dir;
-  /**
-   * @returns first element
-   */
-  ChangeFirst(): gp_Dir;
-  /**
-   * @returns last element
-   */
-  Last(): gp_Dir;
-  /**
-   * @returns last element
-   */
-  ChangeLast(): gp_Dir;
-  /**
-   * Constant value access.
-   */
-  Value(theIndex: number): gp_Dir;
-  /**
-   * Variable value access.
-   */
-  ChangeValue(theIndex: number): gp_Dir;
-  /**
-   * 0-based checked access independent of `Lower()`/Upper().
-   * @param theIndex 0-based index in [0, `Size()`-1]
-   */
-  At(theIndex: number): gp_Dir;
-  /**
-   * 0-based checked mutable access independent of `Lower()`/Upper().
-   * @param theIndex 0-based index in [0, `Size()`-1]
-   */
-  ChangeAt(theIndex: number): gp_Dir;
-  /**
-   * Set value.
-   */
-  SetValue(theIndex: number, theItem: gp_Dir): void;
   /**
    * Changes the lowest bound. Do not move data.
    */
@@ -36314,7 +36301,6 @@ type TColStd_ListOfInteger = NCollection_List_int;
 type TColStd_SequenceOfExtendedString = NCollection_Sequence_TCollection_ExtendedString;
 type TColStd_SequenceOfHAsciiString = NCollection_Sequence_handle_TCollection_HAsciiString;
 type TColStd_SequenceOfReal = NCollection_Sequence_double;
-type TColgp_Array1OfDir = NCollection_Array1_gp_Dir;
 type TColgp_Array1OfPnt = NCollection_Array1_gp_Pnt;
 type TColgp_Array1OfPnt2d = NCollection_Array1_gp_Pnt2d;
 type TColgp_Array1OfVec = NCollection_Array1_gp_Vec;
@@ -36556,7 +36542,6 @@ export type { NCollection_Array1_TopoDS_Shape };
 export type { NCollection_Array1_bool };
 export type { NCollection_Array1_double };
 export type { NCollection_Array1_float };
-export type { NCollection_Array1_gp_Dir };
 export type { NCollection_Array1_gp_Pnt };
 export type { NCollection_Array1_gp_Pnt2d };
 export type { NCollection_Array1_gp_Vec };
@@ -36665,7 +36650,6 @@ export type { NCollection_Sequence_handle_TCollection_HAsciiString };
 export type { NCollection_Sequence_handle_TDF_Attribute };
 export type { OCJS };
 export type { Poly_Array1OfTriangle };
-export type { Poly_Connect };
 export type { Poly_HArray1OfTriangle };
 export type { Poly_ListOfTriangulation };
 export type { Poly_PolygonOnTriangulation };
@@ -36714,7 +36698,6 @@ export type { TColStd_ListOfInteger };
 export type { TColStd_SequenceOfExtendedString };
 export type { TColStd_SequenceOfHAsciiString };
 export type { TColStd_SequenceOfReal };
-export type { TColgp_Array1OfDir };
 export type { TColgp_Array1OfPnt };
 export type { TColgp_Array1OfPnt2d };
 export type { TColgp_Array1OfVec };
@@ -36777,6 +36760,9 @@ export type { XCAFDoc_ColorTool };
 export type { XCAFDoc_ColorType };
 export type { XCAFDoc_DocumentTool };
 export type { XCAFDoc_ShapeTool };
+export type { XCAFDoc_VisMaterial };
+export type { XCAFDoc_VisMaterialPBR };
+export type { XCAFDoc_VisMaterialTool };
 export type { gp_Ax1 };
 export type { gp_Ax2 };
 export type { gp_Ax2d };
@@ -36832,6 +36818,9 @@ export type OpenCascadeInstance = {
   XCAFDoc_ColorType: typeof XCAFDoc_ColorType;
   XCAFDoc_DocumentTool: typeof XCAFDoc_DocumentTool;
   XCAFDoc_ShapeTool: typeof XCAFDoc_ShapeTool;
+  XCAFDoc_VisMaterial: typeof XCAFDoc_VisMaterial;
+  XCAFDoc_VisMaterialPBR: typeof XCAFDoc_VisMaterialPBR;
+  XCAFDoc_VisMaterialTool: typeof XCAFDoc_VisMaterialTool;
   IFSelect_ReturnStatus: typeof IFSelect_ReturnStatus;
   Bnd_Box: typeof Bnd_Box;
   Bnd_Box2d: typeof Bnd_Box2d;
@@ -36840,7 +36829,6 @@ export type OpenCascadeInstance = {
   GeomAbs_JoinType: typeof GeomAbs_JoinType;
   GeomAbs_Shape: typeof GeomAbs_Shape;
   GeomAbs_SurfaceType: typeof GeomAbs_SurfaceType;
-  Poly_Connect: typeof Poly_Connect;
   Poly_PolygonOnTriangulation: typeof Poly_PolygonOnTriangulation;
   Poly_Triangle: typeof Poly_Triangle;
   Poly_Triangulation: typeof Poly_Triangulation;
@@ -37059,7 +37047,6 @@ export type OpenCascadeInstance = {
   NCollection_Array1_bool: typeof NCollection_Array1_bool;
   NCollection_Array1_double: typeof NCollection_Array1_double;
   NCollection_Array1_float: typeof NCollection_Array1_float;
-  NCollection_Array1_gp_Dir: typeof NCollection_Array1_gp_Dir;
   NCollection_Array1_gp_Pnt: typeof NCollection_Array1_gp_Pnt;
   NCollection_Array1_gp_Pnt2d: typeof NCollection_Array1_gp_Pnt2d;
   NCollection_Array1_gp_Vec: typeof NCollection_Array1_gp_Vec;

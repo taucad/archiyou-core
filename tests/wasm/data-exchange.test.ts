@@ -21,11 +21,17 @@ describe('data exchange', () => {
     const document = new oc.TDocStd_Document(documentName);
     const mainLabel = document.Main();
     const shapeTool = oc.XCAFDoc_DocumentTool.ShapeTool(mainLabel);
-    const colorTool = oc.XCAFDoc_DocumentTool.ColorTool(mainLabel);
+    const materialTool = oc.XCAFDoc_DocumentTool.VisMaterialTool(mainLabel);
     const shapeLabel = shapeTool.NewShape();
     shapeTool.SetShape(shapeLabel, shape);
     const color = new oc.Quantity_ColorRGBA(1, 0, 0, 0.5);
-    colorTool.SetColor(shapeLabel, color, oc.XCAFDoc_ColorType.XCAFDoc_ColorSurf);
+    const pbrMaterial = new oc.XCAFDoc_VisMaterialPBR();
+    pbrMaterial.BaseColor = color;
+    const ocMaterial = new oc.XCAFDoc_VisMaterial();
+    ocMaterial.SetPbrMaterial(pbrMaterial);
+    const materialName = new oc.TCollection_AsciiString('red');
+    const materialLabel = materialTool.AddMaterial(ocMaterial, materialName);
+    materialTool.SetShapeMaterial(shapeLabel, materialLabel);
     const mesh = new oc.BRepMesh_IncrementalMesh(shape, 0.1, false, 0.1, false);
     const outputPath = new oc.TCollection_AsciiString('/colored.glb');
     const writer = new oc.RWGltf_CafWriter(outputPath, true);
@@ -43,12 +49,12 @@ describe('data exchange', () => {
     expect(primitives.length).toBeGreaterThan(0);
     expect(primitives.every((entry) => entry.getIndices()?.getCount())).toBe(true);
     expect(primitives.every((entry) => entry.getAttribute('POSITION')?.getCount())).toBe(true);
-    const material = primitives[0]?.getMaterial();
-    expect(material?.getBaseColorFactor()).toStrictEqual([1, 0, 0, 0.5]);
-    expect(material?.getMetallicFactor()).toBe(0);
-    expect(material?.getRoughnessFactor()).toBe(1);
-    expect(material?.getAlphaMode()).toBe('BLEND');
-    expect(material?.getDoubleSided()).toBe(true);
+    const gltfMaterial = primitives[0]?.getMaterial();
+    expect(gltfMaterial?.getBaseColorFactor()).toStrictEqual([1, 0, 0, 0.5]);
+    expect(gltfMaterial?.getMetallicFactor()).toBe(1);
+    expect(gltfMaterial?.getRoughnessFactor()).toBe(1);
+    expect(gltfMaterial?.getAlphaMode()).toBe('BLEND');
+    expect(gltfMaterial?.getDoubleSided()).toBe(true);
 
     for (const value of [
       progress,
@@ -56,9 +62,13 @@ describe('data exchange', () => {
       writer,
       outputPath,
       mesh,
+      materialLabel,
+      materialName,
+      ocMaterial,
+      pbrMaterial,
       color,
       shapeLabel,
-      colorTool,
+      materialTool,
       shapeTool,
       mainLabel,
       document,

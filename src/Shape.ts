@@ -44,6 +44,7 @@ import { targetOcForGarbageCollection, removeOcTargetForGarbageCollection } from
 
 import { toRad, isNumeric, roundToTolerance } from './internal' // utils
 import { checkInput, addResultShapesToScene, protectOC } from './decorators'; // Import directly to avoid error in ts-node
+import type { OpenCascadeInstance } from './wasm/archiyou-opencascade';
 
 
 // this can disable TS errors when subclasses are not initialized yet
@@ -52,6 +53,8 @@ type IEdge = Edge
 type ISolid = Solid
 type IWire = Wire
 type IDimensionLine = DimensionLine
+type OcShapeType = OpenCascadeInstance['TopAbs_ShapeEnum'][keyof OpenCascadeInstance['TopAbs_ShapeEnum']]
+type OcShapeClassName = ShapeType|'CompSolid'|'Compound'
 
  
 export class Shape
@@ -72,7 +75,7 @@ export class Shape
     annotations:Array<Annotation> = []; // array of annotations associated with this Shape
 
     //// SETTINGS ////
-    CLASSNAME_TO_SHAPE_ENUM_STATIC: {[key:string]:string} =  {
+    CLASSNAME_TO_SHAPE_ENUM_STATIC: Record<OcShapeClassName, keyof OpenCascadeInstance['TopAbs_ShapeEnum']> =  {
         // NOTE: these will be really initialized if _oc is present!
         'Vertex' : 'TopAbs_VERTEX',
         'Edge' : 'TopAbs_EDGE',
@@ -83,8 +86,8 @@ export class Shape
         'CompSolid' : 'TopAbs_COMPSOLID',
         'Compound' : 'TopAbs_COMPOUND',
     };
-    CLASSNAME_TO_SHAPE_ENUM: {[key:string]:any} = {}; // to be filled. 
-    OC_SHAPE_ENUM_TO_CLASSNAME: {[key:string]:string} = {}; // set with CLASSNAME_TO_SHAPE_ENUM
+    CLASSNAME_TO_SHAPE_ENUM: Partial<Record<OcShapeClassName, OcShapeType>> = {}; // to be filled.
+    OC_SHAPE_ENUM_TO_CLASSNAME: Partial<Record<OcShapeType, OcShapeClassName>> = {}; // set with CLASSNAME_TO_SHAPE_ENUM
 
 
     //// CREATION METHODS ////
@@ -456,11 +459,12 @@ export class Shape
         // see: http://jcae.sourceforge.net/occjava-doc/index.html?org/jcae/opencascade/jni/TopAbs_ShapeEnum.html
         
         // really initialize the values
-        for ( const [ key,value] of Object.entries(this.CLASSNAME_TO_SHAPE_ENUM_STATIC))
+        for (const [className, enumName] of Object.entries(this.CLASSNAME_TO_SHAPE_ENUM_STATIC) as Array<[OcShapeClassName, keyof OpenCascadeInstance['TopAbs_ShapeEnum']]>)
         {
-            this.CLASSNAME_TO_SHAPE_ENUM[key] = this._oc.TopAbs_ShapeEnum[value];
+            const shapeType = this._oc.TopAbs_ShapeEnum[enumName] as OcShapeType;
+            this.CLASSNAME_TO_SHAPE_ENUM[className] = shapeType;
+            this.OC_SHAPE_ENUM_TO_CLASSNAME[shapeType] = className;
         }
-        Object.entries(this.CLASSNAME_TO_SHAPE_ENUM).forEach(([className, ocShapeEnum]) => this.OC_SHAPE_ENUM_TO_CLASSNAME[ocShapeEnum as string] = className);
     }
 
     //// TRANSFORMATION METHODS ////
@@ -543,7 +547,7 @@ export class Shape
         return type as ShapeType;
     }
 
-    _getShapeTypeFromOcShape(ocShape:any):string // TODO: OC typing
+    _getShapeTypeFromOcShape(ocShape:any):OcShapeClassName|undefined // TODO: OC typing
     {
         if(!ocShape.ShapeType)
         {
@@ -551,7 +555,7 @@ export class Shape
             return null;
         }
 
-        let shapeType:string = this._shapeTypeEnumLookup(ocShape.ShapeType()) ;
+        const shapeType = this._shapeTypeEnumLookup(ocShape.ShapeType());
         
         return shapeType;
     }
@@ -3331,7 +3335,7 @@ export class Shape
     }
 
     /** Returns type of Shape in Archiyou class name: Vertex, Edge, Wire, Face, Shell etc */
-    _shapeTypeEnumLookup(shapeType:string):any
+    _shapeTypeEnumLookup(shapeType:OcShapeType):OcShapeClassName|undefined
     {
         // see OC type enum: https://dev.opencascade.org/doc/occt-7.4.0/refman/html/_top_abs___shape_enum_8hxx.html#a67b8aa38656811eaee45f9df08499667
         return this.OC_SHAPE_ENUM_TO_CLASSNAME[shapeType];
@@ -4728,7 +4732,7 @@ export class Shape
         /* OC Docs:
             - BREPMesh_IncrementalMesh Docs: https://dev.opencascade.org/doc/occt-7.6.0/refman/html/class_b_rep_mesh___incremental_mesh.html
             - BRep_Tool: https://dev.opencascade.org/doc/occt-7.6.0/refman/html/class_b_rep___tool.html
-            - Poly_Connect: https://dev.opencascade.org/doc/occt-7.6.0/refman/html/class_poly___connect.html
+            - BRepLib_ToolTriangulatedShape: https://dev.opencascade.org/doc/refman/html/class_b_rep_lib___tool_triangulated_shape.html
         
             Here the core of the meshing takes place - it converts the Shape into a Mesh. 
              Data is placed on the Faces of the Shape and retrieved by BRep_Tool.Triangulation(face)
@@ -4774,7 +4778,7 @@ export class Shape
             const faceTransformation = ocLocation.Transformation();
             const clonedShapeTransformation = (this._cloned) ? this._ocShape.Location().Transformation() : null;
 
-            if (ocTriangulation.IsNull()) 
+            if (!ocTriangulation)
             { 
                 console.warn(`Shape:toMeshShape: Got Null Face: skipped!`)    
             }
@@ -4859,17 +4863,15 @@ export class Shape
             
                 // Face Vertex normals
 
-                // We create a TColgp_Array10fDir here, which is a subclass of NCollection_Array1
-                // Which has a constructor documented here: https://dev.opencascade.org/doc/occt-7.4.0/refman/html/class_n_collection___array1.html
-                const myNormal = new this._oc.NCollection_Array1_gp_Dir(1, numNodes); // see: https://dev.opencascade.org/doc/occt-7.5.0/refman/html/classgp___dir.html
-                const ocTriangulateTool = this._oc.BRepLib_ToolTriangulatedShape; // OC docs: https://dev.opencascade.org/doc/occt-7.4.0/refman/html/class_std_prs___tool_triangulated_shape.html
-                const ocPolyConnect = new this._oc.Poly_Connect(ocTriangulation); // OC docs: https://dev.opencascade.org/doc/occt-7.4.0/refman/html/class_poly___triangulation.html
-                ocTriangulateTool.Normal(curFace._ocShape, ocPolyConnect, myNormal);
-                faceMesh.normals = new Array(myNormal.Length() * 3);
-
-                for(let i = 0; i < myNormal.Length(); i++)
+                if (!ocTriangulation.HasNormals())
                 {
-                    let p = myNormal.Value(i + 1);
+                    this._oc.BRepLib_ToolTriangulatedShape.ComputeNormals(curFace._ocShape, ocTriangulation);
+                }
+                faceMesh.normals = new Array(numNodes * 3);
+
+                for(let i = 0; i < numNodes; i++)
+                {
+                    const p = ocTriangulation.Normal(i + 1);
 
                     if(clonedShapeTransformation)
                     { 
@@ -4914,7 +4916,6 @@ export class Shape
                 
                 // clean up Face data
                 ocTriangulation.delete(); // NOTE: Do we need to delete this? Clone does not seem to work
-                ocPolyConnect.delete();
 
             } // end not null Face
             

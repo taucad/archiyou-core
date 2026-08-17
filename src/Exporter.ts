@@ -193,7 +193,9 @@ export class Exporter
         - ShapeTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___shape_tool.html
         - TDF_Label: https://dev.opencascade.org/doc/refman/html/class_t_d_f___label.html
         - TDataStd_Name: https://dev.opencascade.org/doc/refman/html/class_t_data_std___name.html
-        - XCAFDoc_ColorTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___color_tool.html
+        - VisMaterialTool: https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___vis_material_tool.html#aaa1fb4d64b9eb24ed86bbe6d368010ab
+        - XCAFDoc_VisMaterial - https://dev.opencascade.org/doc/refman/html/class_x_c_a_f_doc___vis_material.html
+        - VisMaterialPBR: https://dev.opencascade.org/doc/refman/html/struct_x_c_a_f_doc___vis_material_p_b_r.html
 
     */
     async exportToGLTF(shapes?:AnyShapeOrCollection, options?:ExportGLTFOptions, filename?:string):Promise<ArrayBuffer|null>
@@ -206,10 +208,12 @@ export class Exporter
         const meshingQuality = options?.quality || this.DEFAULT_MESH_QUALITY;
         filename = (typeof filename === 'string') ? filename : `file.${(options.binary) ? 'glb' : 'gltf'}`;
 
-        const document = new oc.TDocStd_Document(new oc.TCollection_ExtendedString());
-        const ocShapeTool = oc.XCAFDoc_DocumentTool.ShapeTool(document.Main());
-        const ocColorTool = oc.XCAFDoc_DocumentTool.ColorTool(document.Main());
-        let ocIncMesh;
+        const documentName = new oc.TCollection_ExtendedString();
+        const document = new oc.TDocStd_Document(documentName);
+        const mainLabel = document.Main();
+        const ocShapeTool = oc.XCAFDoc_DocumentTool.ShapeTool(mainLabel);
+        const ocMaterialTool = oc.XCAFDoc_DocumentTool.VisMaterialTool(mainLabel);
+        const ocIncMeshes = [];
 
         /* For now we export all visible shapes in a flattened scene (without nested scenegraph) 
             and export as much properties (id, color) as possible 
@@ -237,20 +241,36 @@ export class Exporter
 
                     const shapeName = `${shape.getId()}__${shape.getName()}`; // save obj_id and name into GLTF node
                     
+                    const ocShapeName = new oc.TCollection_ExtendedString(shapeName, false);
                     oc.TDataStd_Name.Set(ocShapeLabel,
-                                    oc.TDataStd_Name.GetID(), 
-                                    new oc.TCollection_ExtendedString(shapeName, false)); // Set_2 not according to docs (no Set_3)
+                                    oc.TDataStd_Name.GetID(),
+                                    ocShapeName);
+                    ocShapeName.delete();
 
                     // Export basic material to GLTF
                     if (shape._getColorRGBA() !== null)
                     {
-                        const color = new oc.Quantity_ColorRGBA(...shape._getColorRGBA());
-                        ocColorTool.SetColor(ocShapeLabel, color, oc.XCAFDoc_ColorType.XCAFDoc_ColorSurf);
-                        color.delete();
+                        const ocBaseColor = new oc.Quantity_ColorRGBA(...shape._getColorRGBA());
+                        const ocPBRMaterial = new oc.XCAFDoc_VisMaterialPBR();
+                        ocPBRMaterial.BaseColor = ocBaseColor;
+
+                        const ocMaterial = new oc.XCAFDoc_VisMaterial();
+                        ocMaterial.SetPbrMaterial(ocPBRMaterial);
+
+                        const ocMaterialName = new oc.TCollection_AsciiString(shapeName);
+                        const ocMaterialLabel = ocMaterialTool.AddMaterial(ocMaterial, ocMaterialName);
+                        ocMaterialTool.SetShapeMaterial(ocShapeLabel, ocMaterialLabel);
+
+                        ocMaterialLabel.delete();
+                        ocMaterialName.delete();
+                        ocMaterial.delete();
+                        ocPBRMaterial.delete();
+                        ocBaseColor.delete();
                     }
                     
                     // triangulate BREP to mesh
-                    ocIncMesh = new oc.BRepMesh_IncrementalMesh(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false);
+                    ocIncMeshes.push(new oc.BRepMesh_IncrementalMesh(ocShape, meshingQuality.linearDeflection, false, meshingQuality.angularDeflection, false));
+                    ocShapeLabel.delete();
                 }
         })
 
@@ -260,23 +280,34 @@ export class Exporter
         ocCoordSystemConverter.SetInputCoordinateSystem(oc.RWMesh_CoordinateSystem.RWMesh_CoordinateSystem_Zup);
         ocGLFTWriter.SetCoordinateSystemConverter(ocCoordSystemConverter);
         ocGLFTWriter.SetForcedUVExport(true); // to output UV coords
-        const didWrite = ocGLFTWriter.Perform(document, new oc.TColStd_IndexedDataMapOfStringString(), new oc.Message_ProgressRange());
-        if (!didWrite)
+        const metadata = new oc.TColStd_IndexedDataMapOfStringString();
+        const progress = new oc.Message_ProgressRange();
+        let gltfContent:Uint8Array;
+
+        try
         {
-            throw new Error(`Exporter::exportToGLTF: OCCT failed to write ${filename}`);
+            if (!ocGLFTWriter.Perform(document, metadata, progress))
+            {
+                throw new Error(`Exporter::exportToGLTF: OCCT failed to write ${filename}`);
+            }
+
+            const gltfFile = oc.FS.readFile(`./${filename}`, { encoding: 'binary' }); // only binary for now
+            gltfContent = new Uint8Array(gltfFile.buffer) as Uint8Array;
+            oc.FS.unlink("./" + filename);
         }
-        
-        const gltfFile = oc.FS.readFile(`./${filename}`, { encoding: 'binary' }); // only binary for now
-        let gltfContent =  new Uint8Array(gltfFile.buffer) as Uint8Array; 
-        oc.FS.unlink("./" + filename);
-        
-        // clean up OC classes (if any shapes)
-        ocShapeTool?.delete();
-        ocColorTool?.delete();
-        ocIncMesh?.delete();
-        ocGLFTWriter?.delete();
-        ocCoordSystemConverter?.delete();
-        document.delete();
+        finally
+        {
+            progress.delete();
+            metadata.delete();
+            ocShapeTool.delete();
+            ocMaterialTool.delete();
+            ocIncMeshes.forEach(ocIncMesh => ocIncMesh.delete());
+            ocGLFTWriter.delete();
+            ocCoordSystemConverter.delete();
+            mainLabel.delete();
+            document.delete();
+            documentName.delete();
+        }
 
         console.info(`Exporter::exportToGLTF: Exported ${exportShapes.length} OC Shapes in ${Math.round(performance.now() - startGLTFExport)}ms`);
         const startGLTFExtra = performance.now();
