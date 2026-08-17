@@ -455,7 +455,7 @@ export class Face extends Shape
             See solution for references to javascript variables: https://github.com/donalffons/opencascade.js/blob/master/doc/README.md#references-to-built-in-data-types
         */
 
-        const ocFace = this._makeSpecificOcShape(this._ocShape, 'Face');
+        const ocFace = this._makeSpecificOcShape(this._ocShape, 'Face');        
         const { UMin, UMax, VMin, VMax } = this._oc.BRepTools.UVBounds(ocFace);
         return [UMin, UMax, VMin, VMax];
     }

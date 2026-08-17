@@ -243,7 +243,7 @@ export class Exporter
                     
                     const ocShapeName = new oc.TCollection_ExtendedString(shapeName, false);
                     oc.TDataStd_Name.Set(ocShapeLabel,
-                                    oc.TDataStd_Name.GetID(),
+                                    oc.TDataStd_Name.GetID(), 
                                     ocShapeName);
                     ocShapeName.delete();
 
