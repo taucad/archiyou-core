@@ -547,7 +547,7 @@ export class Shape
         return type as ShapeType;
     }
 
-    _getShapeTypeFromOcShape(ocShape:any):OcShapeClassName|undefined // TODO: OC typing
+    _getShapeTypeFromOcShape(ocShape:any):OcShapeClassName|undefined
     {
         if(!ocShape.ShapeType)
         {
